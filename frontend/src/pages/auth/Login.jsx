@@ -8,7 +8,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -16,9 +16,13 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
+      const data = await login(email, password);
       toast.success('Login successful!');
-      navigate('/dashboard');
+      if (data.user?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       toast.error(error.response?.data?.error || 'Login failed');
     } finally {
@@ -27,24 +31,23 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-600 to-primary-800 px-4">
+    <div className="bg-[#0a0e27] min-h-screen flex items-center justify-center px-4">
       <div className="max-w-md w-full">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* Logo */}
+        <div className="bg-white/5 backdrop-blur-sm border border-white/5 rounded-2xl shadow-xl p-6 sm:p-8">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-500 rounded-xl mb-4">
-              <span className="text-white font-bold text-2xl">S</span>
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-xl mb-4">
+              <span className="text-white font-bold text-2xl">N</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-            <p className="text-gray-500 mt-2">Sign in to your account</p>
+            <h1 className="text-2xl font-bold text-white">Welcome back</h1>
+            <p className="text-gray-400 mt-2">Sign in to your account</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <Input
               label="Email"
               type="email"
-              placeholder="Enter your email"
+              placeholder="your.email@gmail.com"
+              helperText="Only @gmail.com addresses allowed"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -68,13 +71,12 @@ const Login = () => {
             </Button>
           </form>
 
-          {/* Footer */}
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
+            <p className="text-gray-400">
               Don't have an account?{' '}
               <Link
                 to="/register"
-                className="text-primary-600 font-medium hover:underline"
+                className="text-primary-400 font-medium hover:underline"
               >
                 Sign up
               </Link>

@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum OrderStatus {
+  pending
+  processing
+  in_progress
+  completed
+  partial
+  cancelled
+  refunded
+}
+
+enum TransactionType {
+  credit
+  debit
+}
+
+enum PaymentMethodType {
+  razorpay
+  paytm
+  manual
+  order
+  refund
+}
+
+enum TransactionStatus {
+  pending
+  completed
+  failed
+}
+
+enum FundStatus {
+  pending
+  approved
+  rejected
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  username      String   @unique
+  email         String   @unique
+  password      String
+  role          Role     @default(user)
+  walletBalance Float    @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  orders                Order[]
+  walletTransactions    WalletTransaction[]
+  messages              Message[]
+  fundRequests          FundRequest[]
+
+  @@map("users")
+}
+
+model Service {
+  id                String   @id @default(cuid())
+  title             String
+  category          String
+  description       String   @default("")
+  rate              Float
+  providerRate      Float    @default(0)
+  min               Int
+  max               Int
+  providerServiceId String   @default("")
+  providerId        String?
+  isManual          Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  sortOrder         Int      @default(9999)
+  categorySortOrder Int      @default(9999)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  orders Order[]
+
+  provider Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  categoryRef Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId  String?
+
+  @@index([category, isActive])
+  @@map("services")
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     Int         @unique @default(autoincrement())
+  userId          String
+  serviceId       String?
+  link            String
+  quantity        Int
+  amount          Float
+  providerCost    Float       @default(0)
+  profit          Float       @default(0)
+  status          OrderStatus @default(pending)
+  providerOrderId String?
+  startCount      Int         @default(0)
+  remains         Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  walletTransactions WalletTransaction[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@index([providerOrderId])
+  @@map("orders")
+}
+
+model WalletTransaction {
+  id            String            @id @default(cuid())
+  userId        String
+  type          TransactionType
+  amount        Float
+  description   String
+  balanceAfter  Float
+  paymentId     String?
+  paymentMethod PaymentMethodType @default(manual)
+  status        TransactionStatus @default(completed)
+  orderId       String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([paymentId])
+  @@map("wallet_transactions")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  type      String   @default("info") // info, warning, success, announcement
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("messages")
+}
+
+model PaymentMethod {
+  id            String   @id @default(cuid())
+  name          String
+  accountNumber String
+  accountTitle  String
+  logo          String?
+  minAmount     Float    @default(50)
+  maxAmount     Float    @default(10000)
+  fee           Float    @default(0)
+  isActive      Boolean  @default(true)
+  instructions  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  fundRequests FundRequest[]
+
+  @@map("payment_methods")
+}
+
+model FundRequest {
+  id              String     @id @default(cuid())
+  userId          String
+  paymentMethodId String
+  amount          Float
+  transactionId   String
+  status          FundStatus @default(pending)
+  adminNote       String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentMethod PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("fund_requests")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  name      String
+  avatar    String?
+  text      String
+  rating    Int      @default(5)
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("reviews")
+}
+
+model Provider {
+  id        String   @id @default(cuid())
+  name      String
+  apiUrl    String
+  apiKey    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services Service[]
+
+  @@map("providers")
+}
+
+model Category {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  displayName   String?
+  sortOrder     Int      @default(9999)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  services Service[]
+
+  @@map("categories")
+}
+
+model SiteSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+
+  @@map("site_settings")
+}

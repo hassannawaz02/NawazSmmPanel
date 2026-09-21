@@ -1,6 +1,6 @@
 const Card = ({ children, className = '', title, subtitle, action }) => {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${className}`}>
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
       {(title || subtitle || action) && (
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
@@ -10,7 +10,7 @@ const Card = ({ children, className = '', title, subtitle, action }) => {
           {action && <div>{action}</div>}
         </div>
       )}
-      <div className="p-6">{children}</div>
+      <div className="p-4 sm:p-6">{children}</div>
     </div>
   );
 };

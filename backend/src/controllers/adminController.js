@@ -1,76 +1,109 @@
-const { User, Order, Service, WalletTransaction } = require('../models');
+const prisma = require('../lib/prisma');
 const ErrorResponse = require('../utils/errorResponse');
 
-// @desc    Get all users
-// @route   GET /api/admin/users
-// @access  Private/Admin
 exports.getUsers = async (req, res, next) => {
   try {
     const { page = 1, limit = 50, search, role } = req.query;
-    const query = {};
+    const where = {};
 
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
       ];
     }
 
     if (role) {
-      query.role = role;
+      where.role = role;
     }
 
-    const skip = (page - 1) * limit;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const users = await User.find(query)
-      .select('-password')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          email: true,
+          role: true,
+          walletBalance: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: parseInt(limit),
+      }),
+      prisma.user.count({ where }),
+    ]);
 
-    const total = await User.countDocuments(query);
+    const userIds = users.map((u) => u.id);
+    const spendingAgg = await prisma.order.groupBy({
+      by: ['userId'],
+      where: { userId: { in: userIds } },
+      _sum: { amount: true },
+    });
+    const spendingMap = {};
+    spendingAgg.forEach((s) => {
+      spendingMap[s.userId] = s._sum.amount || 0;
+    });
+
+    const usersWithSpending = users.map((u) => ({
+      ...u,
+      totalSpending: spendingMap[u.id] || 0,
+    }));
 
     res.status(200).json({
       success: true,
-      count: users.length,
+      count: usersWithSpending.length,
       total,
       page: parseInt(page),
-      pages: Math.ceil(total / limit),
-      data: users,
+      pages: Math.ceil(total / parseInt(limit)),
+      data: usersWithSpending,
     });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Get single user
-// @route   GET /api/admin/users/:id
-// @access  Private/Admin
 exports.getUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        role: true,
+        walletBalance: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
     if (!user) {
       return next(new ErrorResponse('User not found', 404));
     }
 
-    // Get user's order count and total spent
-    const orderStats = await Order.aggregate([
-      { $match: { user: user._id } },
-      {
-        $group: {
-          _id: null,
-          totalOrders: { $sum: 1 },
-          totalSpent: { $sum: '$amount' },
-        },
-      },
-    ]);
+    const orderStats = await prisma.order.aggregate({
+      where: { userId: user.id },
+      _count: { id: true },
+      _sum: { amount: true },
+    });
 
     res.status(200).json({
       success: true,
       data: {
-        ...user.toObject(),
-        orderStats: orderStats[0] || { totalOrders: 0, totalSpent: 0 },
+        ...user,
+        orderStats: {
+          totalOrders: orderStats._count.id || 0,
+          totalSpent: orderStats._sum.amount || 0,
+        },
       },
     });
   } catch (err) {
@@ -78,153 +111,156 @@ exports.getUser = async (req, res, next) => {
   }
 };
 
-// @desc    Update user
-// @route   PUT /api/admin/users/:id
-// @access  Private/Admin
 exports.updateUser = async (req, res, next) => {
   try {
     const { name, email, role, isActive, walletBalance } = req.body;
 
-    let user = await User.findById(req.params.id);
+    const existingUser = await prisma.user.findUnique({
+      where: { id: req.params.id },
+    });
 
-    if (!user) {
+    if (!existingUser) {
       return next(new ErrorResponse('User not found', 404));
     }
 
-    // If changing wallet balance, create transaction
-    if (walletBalance !== undefined && walletBalance !== user.walletBalance) {
-      const diff = walletBalance - user.walletBalance;
-      await WalletTransaction.create({
-        user: user._id,
-        type: diff > 0 ? 'credit' : 'debit',
-        amount: Math.abs(diff),
-        description: `Balance adjustment by admin`,
-        balanceAfter: walletBalance,
-        paymentMethod: 'manual',
-        status: 'completed',
+    if (walletBalance !== undefined && walletBalance !== existingUser.walletBalance) {
+      const diff = walletBalance - existingUser.walletBalance;
+      await prisma.walletTransaction.create({
+        data: {
+          userId: existingUser.id,
+          type: diff > 0 ? 'credit' : 'debit',
+          amount: Math.abs(diff),
+          description: 'Balance adjustment by admin',
+          balanceAfter: walletBalance,
+          paymentMethod: 'manual',
+          status: 'completed',
+        },
       });
     }
 
-    user = await User.findByIdAndUpdate(
-      req.params.id,
-      { name, email, role, isActive, walletBalance },
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    res.status(200).json({
-      success: true,
-      data: user,
+    const user = await prisma.user.update({
+      where: { id: req.params.id },
+      data: { name, username: req.body.username, email, role, isActive, walletBalance },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        role: true,
+        walletBalance: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
+
+    res.status(200).json({ success: true, data: user });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Delete user
-// @route   DELETE /api/admin/users/:id
-// @access  Private/Admin
 exports.deleteUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
 
     if (!user) {
       return next(new ErrorResponse('User not found', 404));
     }
 
-    // Prevent deleting self
-    if (user._id.toString() === req.user.id) {
+    if (user.id === req.user.id) {
       return next(new ErrorResponse('Cannot delete your own account', 400));
     }
 
-    await user.deleteOne();
+    await prisma.user.delete({ where: { id: req.params.id } });
 
-    res.status(200).json({
-      success: true,
-      data: {},
-    });
+    res.status(200).json({ success: true, data: {} });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Get dashboard statistics
-// @route   GET /api/admin/dashboard
-// @access  Private/Admin
 exports.getDashboardStats = async (req, res, next) => {
   try {
-    // User stats
-    const totalUsers = await User.countDocuments();
-    const activeUsers = await User.countDocuments({ isActive: true });
+    const totalUsers = await prisma.user.count();
+    const activeUsers = await prisma.user.count({ where: { isActive: true } });
 
-    // Order stats
-    const totalOrders = await Order.countDocuments();
-    const pendingOrders = await Order.countDocuments({ status: 'pending' });
-    const processingOrders = await Order.countDocuments({
-      status: { $in: ['processing', 'in_progress'] },
+    const totalOrders = await prisma.order.count();
+    const pendingOrders = await prisma.order.count({ where: { status: 'pending' } });
+    const processingOrders = await prisma.order.count({
+      where: { status: { in: ['processing', 'in_progress'] } },
     });
 
-    // Revenue stats
-    const revenueStats = await Order.aggregate([
-      { $match: { status: { $nin: ['cancelled', 'refunded'] } } },
-      { $group: { _id: null, total: { $sum: '$amount' } } },
-    ]);
-
-    // Today's stats
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const todayOrders = await Order.countDocuments({
-      createdAt: { $gte: today },
+    const todayOrders = await prisma.order.count({
+      where: { createdAt: { gte: today } },
     });
 
-    const todayRevenue = await Order.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: today },
-          status: { $nin: ['cancelled', 'refunded'] },
-        },
+    const revenueStats = await prisma.order.aggregate({
+      where: { status: { notIn: ['cancelled', 'refunded'] } },
+      _sum: { amount: true },
+    });
+
+    const todayRevenue = await prisma.order.aggregate({
+      where: {
+        createdAt: { gte: today },
+        status: { notIn: ['cancelled', 'refunded'] },
       },
-      { $group: { _id: null, total: { $sum: '$amount' } } },
-    ]);
+      _sum: { amount: true },
+    });
 
-    // Service stats
-    const totalServices = await Service.countDocuments();
-    const activeServices = await Service.countDocuments({ isActive: true });
+    const profitStats = await prisma.order.aggregate({
+      where: { status: { notIn: ['cancelled', 'refunded'] } },
+      _sum: { profit: true },
+    });
 
-    // Recent orders
-    const recentOrders = await Order.find()
-      .populate('user', 'name email')
-      .populate('service', 'title')
-      .sort({ createdAt: -1 })
-      .limit(10);
+    const todayProfit = await prisma.order.aggregate({
+      where: {
+        createdAt: { gte: today },
+        status: { notIn: ['cancelled', 'refunded'] },
+      },
+      _sum: { profit: true },
+    });
 
-    // Orders by status
-    const ordersByStatus = await Order.aggregate([
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-    ]);
+    const totalServices = await prisma.service.count();
+    const activeServices = await prisma.service.count({ where: { isActive: true } });
+
+    const recentOrders = await prisma.order.findMany({
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        service: { select: { id: true, title: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    const ordersByStatus = await prisma.order.groupBy({
+      by: ['status'],
+      _count: { id: true },
+    });
 
     res.status(200).json({
       success: true,
       data: {
-        users: {
-          total: totalUsers,
-          active: activeUsers,
-        },
+        users: { total: totalUsers, active: activeUsers },
         orders: {
           total: totalOrders,
           pending: pendingOrders,
           processing: processingOrders,
           today: todayOrders,
-          byStatus: ordersByStatus,
+          byStatus: ordersByStatus.map((s) => ({ _id: s.status, count: s._count.id })),
         },
         revenue: {
-          total: revenueStats[0]?.total || 0,
-          today: todayRevenue[0]?.total || 0,
+          total: revenueStats._sum.amount || 0,
+          today: todayRevenue._sum.amount || 0,
         },
-        services: {
-          total: totalServices,
-          active: activeServices,
+        profit: {
+          total: profitStats._sum.profit || 0,
+          today: todayProfit._sum.profit || 0,
         },
+        services: { total: totalServices, active: activeServices },
         recentOrders,
       },
     });

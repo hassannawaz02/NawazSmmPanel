@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { servicesAPI, ordersAPI } from '../../services/api';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { servicesAPI, ordersAPI, walletAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Card, Button, Input, Select, PageLoader } from '../../components/ui';
 import toast from 'react-hot-toast';
@@ -8,6 +8,8 @@ import toast from 'react-hot-toast';
 const NewOrder = () => {
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedServiceId = searchParams.get('service');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [services, setServices] = useState([]);
@@ -27,9 +29,24 @@ const NewOrder = () => {
   const fetchServices = async () => {
     try {
       const response = await servicesAPI.getAll();
-      setServices(response.data.data);
-      const uniqueCategories = [...new Set(response.data.data.map((s) => s.category))];
+      const allServices = response.data.data;
+      setServices(allServices);
+      const uniqueCategories = [...new Set(allServices.map((s) => s.category))];
       setCategories(uniqueCategories);
+
+      // Auto-select if service ID in URL
+      if (preselectedServiceId) {
+        const service = allServices.find((s) => s.id === preselectedServiceId);
+        if (service) {
+          setSelectedCategory(service.category);
+          setSelectedService(service);
+          setFormData({
+            serviceId: service.id,
+            link: '',
+            quantity: service.min?.toString() || '',
+          });
+        }
+      }
     } catch (error) {
       toast.error('Failed to fetch services');
     } finally {
@@ -42,7 +59,7 @@ const NewOrder = () => {
     : services;
 
   const handleServiceChange = (serviceId) => {
-    const service = services.find((s) => s._id === serviceId);
+    const service = services.find((s) => s.id === serviceId);
     setSelectedService(service);
     setFormData((prev) => ({
       ...prev,
@@ -51,8 +68,11 @@ const NewOrder = () => {
     }));
   };
 
+  const isFixedPackage = selectedService && selectedService.min === selectedService.max;
+
   const calculateTotal = () => {
     if (!selectedService || !formData.quantity) return 0;
+    if (isFixedPackage) return selectedService.rate;
     return (selectedService.rate / 1000) * parseInt(formData.quantity);
   };
 
@@ -85,8 +105,9 @@ const NewOrder = () => {
         quantity,
       });
 
-      // Update user balance
-      updateUser({ walletBalance: user.walletBalance - total });
+      // Fetch actual balance from DB
+      const balanceRes = await walletAPI.getBalance();
+      updateUser({ walletBalance: balanceRes.data.data.balance });
 
       toast.success('Order placed successfully!');
       navigate('/orders');
@@ -128,19 +149,28 @@ const NewOrder = () => {
             onChange={(e) => handleServiceChange(e.target.value)}
             placeholder="Select a service"
             options={filteredServices.map((service) => ({
-              value: service._id,
-              label: `${service.title} - ₹${service.rate}/1000`,
+              value: service.id,
+              label: service.min === service.max
+                ? `${service.title} - PKR ${service.rate}`
+                : `${service.title} - PKR ${service.rate}/1000`,
             }))}
           />
 
           {/* Service Details */}
           {selectedService && (
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-primary-50 rounded-lg p-4">
               <h3 className="font-medium text-gray-900 mb-2">Service Details</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              {selectedService.description && (
+                <p className="text-sm text-gray-600 mb-3" style={{ whiteSpace: 'pre-line' }}>{selectedService.description}</p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">Rate:</span>
-                  <span className="ml-2 font-medium">₹{selectedService.rate}/1000</span>
+                  <span className="ml-2 font-medium">
+                    {isFixedPackage
+                      ? `PKR ${selectedService.rate}`
+                      : `PKR ${selectedService.rate}/1000`}
+                  </span>
                 </div>
                 <div>
                   <span className="text-gray-500">Min:</span>
@@ -182,13 +212,13 @@ const NewOrder = () => {
               <div>
                 <p className="text-sm text-gray-600">Total Amount</p>
                 <p className="text-2xl font-bold text-primary-600">
-                  ₹{calculateTotal().toFixed(2)}
+                  PKR {calculateTotal().toFixed(2)}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-gray-600">Your Balance</p>
                 <p className={`text-lg font-semibold ${user.walletBalance >= calculateTotal() ? 'text-green-600' : 'text-red-600'}`}>
-                  ₹{user.walletBalance.toFixed(2)}
+                  PKR {user.walletBalance.toFixed(2)}
                 </p>
               </div>
             </div>

@@ -27,6 +27,7 @@ const AdminUsers = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     email: '',
     role: 'user',
     walletBalance: '',
@@ -68,6 +69,7 @@ const AdminUsers = () => {
     setEditingUser(user);
     setFormData({
       name: user.name,
+      username: user.username || '',
       email: user.email,
       role: user.role,
       walletBalance: user.walletBalance.toString(),
@@ -81,7 +83,7 @@ const AdminUsers = () => {
     setSubmitting(true);
 
     try {
-      await adminAPI.updateUser(editingUser._id, {
+      await adminAPI.updateUser(editingUser.id, {
         ...formData,
         walletBalance: parseFloat(formData.walletBalance),
       });
@@ -120,7 +122,8 @@ const AdminUsers = () => {
           </div>
           <div>
             <p className="font-medium">{row.name}</p>
-            <p className="text-xs text-gray-500">{row.email}</p>
+            <p className="text-xs text-gray-500">@{row.username || 'N/A'}</p>
+            <p className="text-xs text-gray-400">{row.email}</p>
           </div>
         </div>
       ),
@@ -138,7 +141,14 @@ const AdminUsers = () => {
       key: 'walletBalance',
       title: 'Balance',
       render: (balance) => (
-        <span className="font-medium">₹{balance.toFixed(2)}</span>
+        <span className="font-medium">PKR {balance.toFixed(2)}</span>
+      ),
+    },
+    {
+      key: 'totalSpending',
+      title: 'Spending',
+      render: (spending) => (
+        <span className="font-medium text-orange-600">PKR {(spending || 0).toFixed(2)}</span>
       ),
     },
     {
@@ -167,7 +177,7 @@ const AdminUsers = () => {
             <HiOutlinePencil className="w-5 h-5" />
           </button>
           <button
-            onClick={() => handleDelete(row._id)}
+            onClick={() => handleDelete(row.id)}
             className="p-1 text-red-600 hover:bg-red-50 rounded"
           >
             <HiOutlineTrash className="w-5 h-5" />
@@ -181,11 +191,11 @@ const AdminUsers = () => {
     <div className="fade-in">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Manage Users ({pagination.total})</h1>
           <p className="text-gray-500 mt-1">View and manage user accounts</p>
         </div>
-        <form onSubmit={handleSearch} className="mt-4 md:mt-0 flex gap-2">
-          <div className="relative">
+        <form onSubmit={handleSearch} className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
             <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -228,13 +238,19 @@ const AdminUsers = () => {
             required
           />
           <Input
+            label="Username"
+            value={formData.username}
+            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+            required
+          />
+          <Input
             label="Email"
             type="email"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             required
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Role

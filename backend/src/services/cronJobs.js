@@ -1,22 +1,49 @@
 const cron = require('node-cron');
-const { Order, User, WalletTransaction } = require('../models');
-const smmProvider = require('../services/smmProvider');
+const prisma = require('../lib/prisma');
+const SMMProvider = require('../services/smmProvider');
 
-/**
- * Update order status from SMM provider
- * Runs every 5 minutes
- */
+const BATCH_SIZE = 100;
+const smmProvider = SMMProvider.getDefault();
+
+function mapProviderStatus(providerStatus) {
+  switch (providerStatus?.toLowerCase()) {
+    case 'pending':
+      return 'pending';
+    case 'processing':
+    case 'in progress':
+      return 'in_progress';
+    case 'completed':
+      return 'completed';
+    case 'partial':
+      return 'partial';
+    case 'cancelled':
+    case 'canceled':
+      return 'cancelled';
+    case 'refunded':
+      return 'refunded';
+    case 'expired':
+      return 'cancelled';
+    case 'error':
+    case 'failed':
+      return 'cancelled';
+    default:
+      return null;
+  }
+}
+
 const orderStatusCron = cron.schedule(
   '*/5 * * * *',
   async () => {
     console.log('Running order status check cron job...');
 
     try {
-      // Get all orders that need status check
-      const orders = await Order.find({
-        status: { $in: ['pending', 'processing', 'in_progress'] },
-        providerOrderId: { $ne: null },
-      }).limit(100);
+      const orders = await prisma.order.findMany({
+        where: {
+          status: { in: ['pending', 'processing', 'in_progress'] },
+          providerOrderId: { not: null },
+        },
+        take: 500,
+      });
 
       if (orders.length === 0) {
         console.log('No orders to check');
@@ -25,74 +52,112 @@ const orderStatusCron = cron.schedule(
 
       console.log(`Checking ${orders.length} orders...`);
 
-      // Check status for each order
-      for (const order of orders) {
+      const providerOrderIds = orders.map((o) => o.providerOrderId);
+      const orderMap = {};
+      orders.forEach((o) => {
+        orderMap[o.providerOrderId] = o;
+      });
+
+      for (let i = 0; i < providerOrderIds.length; i += BATCH_SIZE) {
+        const batch = providerOrderIds.slice(i, i + BATCH_SIZE);
+
         try {
-          const status = await smmProvider.checkOrderStatus(order.providerOrderId);
-
-          // Map provider status to our status
-          let newStatus = order.status;
-          switch (status.status?.toLowerCase()) {
-            case 'pending':
-              newStatus = 'pending';
-              break;
-            case 'processing':
-            case 'in progress':
-              newStatus = 'in_progress';
-              break;
-            case 'completed':
-              newStatus = 'completed';
-              break;
-            case 'partial':
-              newStatus = 'partial';
-              break;
-            case 'cancelled':
-            case 'canceled':
-              newStatus = 'cancelled';
-              break;
-            case 'refunded':
-              newStatus = 'refunded';
-              break;
-          }
-
-          // Update order
-          order.status = newStatus;
-          if (status.start_count !== undefined) {
-            order.startCount = status.start_count;
-          }
-          if (status.remains !== undefined) {
-            order.remains = status.remains;
-          }
-          await order.save();
-
-          // Handle partial/cancelled/refunded orders - credit back the user
-          if (
-            (newStatus === 'partial' || newStatus === 'cancelled' || newStatus === 'refunded') &&
-            order.remains > 0
-          ) {
-            const service = await order.populate('service');
-            const refundAmount = (service.rate / 1000) * order.remains;
-
-            if (refundAmount > 0) {
-              const user = await User.findById(order.user);
-              user.walletBalance += refundAmount;
-              await user.save();
-
-              await WalletTransaction.create({
-                user: user._id,
-                type: 'credit',
-                amount: refundAmount,
-                description: `Partial refund for order #${order._id}`,
-                balanceAfter: user.walletBalance,
-                paymentMethod: 'refund',
-                orderId: order._id,
+          let statusMap = {};
+          if (batch.length === 1) {
+            const status = await smmProvider.checkOrderStatus(batch[0]);
+            statusMap[batch[0]] = status;
+          } else {
+            const statuses = await smmProvider.checkMultipleOrderStatus(batch);
+            if (Array.isArray(statuses)) {
+              statuses.forEach((s) => {
+                if (s.order) {
+                  statusMap[s.order.toString()] = s;
+                }
               });
             }
           }
 
-          console.log(`Order ${order._id} updated to ${newStatus}`);
-        } catch (err) {
-          console.error(`Error checking order ${order._id}:`, err.message);
+          for (const providerOrderId of batch) {
+            const statusData = statusMap[providerOrderId];
+            if (!statusData) continue;
+
+            const order = orderMap[providerOrderId];
+            if (!order) continue;
+
+            try {
+              const newStatus = mapProviderStatus(statusData.status);
+              if (!newStatus || newStatus === order.status) continue;
+
+              const updateData = { status: newStatus };
+              if (statusData.start_count !== undefined) {
+                updateData.startCount = parseInt(statusData.start_count) || 0;
+              }
+              if (statusData.remains !== undefined) {
+                updateData.remains = parseInt(statusData.remains) || 0;
+              }
+
+              await prisma.order.update({
+                where: { id: order.id },
+                data: updateData,
+              });
+
+              if (
+                (newStatus === 'partial' || newStatus === 'cancelled') &&
+                (statusData.remains || 0) > 0
+              ) {
+                const existingRefund = await prisma.walletTransaction.findFirst({
+                  where: { orderId: order.id, type: 'credit', paymentMethod: 'refund' },
+                });
+
+                if (!existingRefund) {
+                  const orderWithService = await prisma.order.findUnique({
+                    where: { id: order.id },
+                    include: { service: true },
+                  });
+
+                  if (orderWithService.service) {
+                    const refundAmount =
+                      (orderWithService.service.rate / 1000) *
+                      orderWithService.remains;
+
+                    if (refundAmount > 0) {
+                      const user = await prisma.user.findUnique({
+                        where: { id: order.userId },
+                      });
+                      const newBalance = user.walletBalance + refundAmount;
+
+                      await prisma.user.update({
+                        where: { id: user.id },
+                        data: { walletBalance: newBalance },
+                      });
+
+                      await prisma.walletTransaction.create({
+                        data: {
+                          userId: user.id,
+                          type: 'credit',
+                          amount: refundAmount,
+                          description: `Refund for order #${order.orderNumber}`,
+                          balanceAfter: newBalance,
+                          paymentMethod: 'refund',
+                          orderId: order.id,
+                          status: 'completed',
+                        },
+                      });
+                    }
+                  }
+                }
+              }
+
+              console.log(`Order #${order.orderNumber} → ${newStatus}`);
+            } catch (err) {
+              console.error(
+                `Error updating order #${order.orderNumber}:`,
+                err.message
+              );
+            }
+          }
+        } catch (batchError) {
+          console.error('Batch status check error:', batchError.message);
         }
       }
 
@@ -101,28 +166,27 @@ const orderStatusCron = cron.schedule(
       console.error('Cron job error:', err.message);
     }
   },
-  {
-    scheduled: false, // Don't start automatically
-  }
+  { scheduled: false }
 );
 
-/**
- * Retry failed orders (orders without provider order ID)
- * Runs every 10 minutes
- */
 const retryFailedOrdersCron = cron.schedule(
   '*/10 * * * *',
   async () => {
     console.log('Running retry failed orders cron job...');
 
     try {
-      const orders = await Order.find({
-        status: 'pending',
-        providerOrderId: null,
-        createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Last 24 hours
-      })
-        .populate('service')
-        .limit(50);
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      const orders = await prisma.order.findMany({
+        where: {
+          status: 'pending',
+          providerOrderId: null,
+          createdAt: { gte: twentyFourHoursAgo },
+          service: { isManual: false },
+        },
+        include: { service: true },
+        take: 50,
+      });
 
       if (orders.length === 0) {
         console.log('No failed orders to retry');
@@ -140,13 +204,17 @@ const retryFailedOrdersCron = cron.schedule(
           );
 
           if (response && response.order) {
-            order.providerOrderId = response.order.toString();
-            order.status = 'processing';
-            await order.save();
-            console.log(`Order ${order._id} successfully sent to provider`);
+            await prisma.order.update({
+              where: { id: order.id },
+              data: {
+                providerOrderId: response.order.toString(),
+                status: 'processing',
+              },
+            });
+            console.log(`Order #${order.orderNumber} successfully sent to provider`);
           }
         } catch (err) {
-          console.error(`Error retrying order ${order._id}:`, err.message);
+          console.error(`Error retrying order #${order.orderNumber}:`, err.message);
         }
       }
 
@@ -155,26 +223,19 @@ const retryFailedOrdersCron = cron.schedule(
       console.error('Retry cron job error:', err.message);
     }
   },
-  {
-    scheduled: false,
-  }
+  { scheduled: false }
 );
 
-// Start cron jobs
 const startCronJobs = () => {
   orderStatusCron.start();
   retryFailedOrdersCron.start();
   console.log('Cron jobs started');
 };
 
-// Stop cron jobs
 const stopCronJobs = () => {
   orderStatusCron.stop();
   retryFailedOrdersCron.stop();
   console.log('Cron jobs stopped');
 };
 
-module.exports = {
-  startCronJobs,
-  stopCronJobs,
-};
+module.exports = { startCronJobs, stopCronJobs };

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 
 const Register = () => {
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -16,17 +17,31 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email)) {
+      toast.error('Only @gmail.com email addresses are allowed');
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast.error('Passwords do not match');
+      return;
+    }
+
+    if (!/^[A-Z]/.test(password)) {
+      toast.error('Password must start with a capital letter');
       return;
     }
 
     setLoading(true);
 
     try {
-      await register(name, email, password);
+      const data = await register(name, username, email, password);
       toast.success('Registration successful!');
-      navigate('/dashboard');
+      if (data.user?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       toast.error(error.response?.data?.error || 'Registration failed');
     } finally {
@@ -35,32 +50,39 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-600 to-primary-800 px-4">
+    <div className="bg-[#0a0e27] min-h-screen flex items-center justify-center px-4">
       <div className="max-w-md w-full">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* Logo */}
+        <div className="bg-white/5 backdrop-blur-sm border border-white/5 rounded-2xl shadow-xl p-6 sm:p-8">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-500 rounded-xl mb-4">
-              <span className="text-white font-bold text-2xl">S</span>
+            <div className="w-16 h-16 bg-primary-600 rounded-xl mb-4 flex items-center justify-center">
+              <span className="text-white font-bold text-2xl">N</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Create account</h1>
-            <p className="text-gray-500 mt-2">Start your SMM journey today</p>
+            <h1 className="text-2xl font-bold text-white">Create account</h1>
+            <p className="text-gray-400 mt-2">Start your SMM journey today</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <Input
               label="Full Name"
               type="text"
-              placeholder="Enter your name"
+              placeholder="Enter your full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
             />
             <Input
+              label="Username"
+              type="text"
+              placeholder="Choose a username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+            <Input
               label="Email"
               type="email"
-              placeholder="Enter your email"
+              placeholder="your.email@gmail.com"
+              helperText="Only @gmail.com addresses allowed"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -69,6 +91,7 @@ const Register = () => {
               label="Password"
               type="password"
               placeholder="Create a password"
+              helperText="Must start with a capital letter"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -92,13 +115,12 @@ const Register = () => {
             </Button>
           </form>
 
-          {/* Footer */}
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
+            <p className="text-gray-400">
               Already have an account?{' '}
               <Link
                 to="/login"
-                className="text-primary-600 font-medium hover:underline"
+                className="text-primary-400 font-medium hover:underline"
               >
                 Sign in
               </Link>

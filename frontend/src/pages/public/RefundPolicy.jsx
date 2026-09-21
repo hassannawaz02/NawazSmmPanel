@@ -3,15 +3,20 @@ import { HiArrowLeft } from 'react-icons/hi';
 
 const RefundPolicy = () => {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#0a0e27]">
       {/* Navbar */}
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
+      <nav className="bg-[#0a0e27]/95 backdrop-blur-md sticky top-0 z-50 border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/" className="text-2xl font-bold text-primary-600">SMM Panel</Link>
-            <div className="flex items-center space-x-4">
-              <Link to="/login" className="text-gray-600 hover:text-gray-900 font-medium">Login</Link>
-              <Link to="/register" className="bg-primary-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-700">
+            <Link to="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">N</span>
+              </div>
+              <span className="text-xl font-bold text-white">Nawaz<span className="text-primary-400">SMM</span>Panel</span>
+            </Link>
+            <div className="flex items-center space-x-3">
+              <Link to="/login" className="text-white/80 hover:text-white text-sm font-medium transition-colors">Login</Link>
+              <Link to="/login" className="bg-primary-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">
                 Get Started
               </Link>
             </div>
@@ -20,20 +25,20 @@ const RefundPolicy = () => {
       </nav>
 
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary-600 to-primary-800 text-white py-16">
+      <div className="bg-[#0d1230] border-b border-white/5 py-12">
         <div className="max-w-4xl mx-auto px-4">
-          <Link to="/" className="inline-flex items-center text-primary-200 hover:text-white mb-4">
+          <Link to="/" className="inline-flex items-center text-gray-400 hover:text-white mb-4 text-sm">
             <HiArrowLeft className="w-5 h-5 mr-2" />
             Back to Home
           </Link>
-          <h1 className="text-4xl font-bold">Refund Policy</h1>
-          <p className="text-primary-100 mt-2">Last updated: December 4, 2025</p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white">Refund Policy</h1>
+          <p className="text-gray-500 mt-2">Last updated: December 4, 2025</p>
         </div>
       </div>
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="bg-white rounded-xl shadow-sm p-8 legal-content">
+        <div className="bg-white/5 backdrop-blur-sm border border-white/5 rounded-2xl p-6 sm:p-8 legal-content">
           <h2>1. Refund Eligibility</h2>
           <p>
             We want you to be satisfied with our services. Refunds may be issued under the 
@@ -66,7 +71,7 @@ const RefundPolicy = () => {
 
           <h2>4. Wallet Credits</h2>
           <p>
-            In most cases, approved refunds will be credited to your SMM Panel wallet balance 
+            In most cases, approved refunds will be credited to your Nawaz SMM Panel wallet balance 
             rather than the original payment method. Wallet credits can be used for future orders.
           </p>
 
@@ -101,9 +106,7 @@ const RefundPolicy = () => {
           </p>
 
           <h2>9. Contact Us</h2>
-          <p>
-            For refund requests or questions about this policy, please contact us:
-          </p>
+          <p>For refund requests or questions about this policy, please contact us:</p>
           <ul>
             <li>Email: support@smmpanel.com</li>
             <li>Phone: +91 9876543210</li>
@@ -112,9 +115,9 @@ const RefundPolicy = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p>&copy; 2025 SMM Panel. All rights reserved.</p>
+      <footer className="bg-[#060920] text-gray-500 py-8 border-t border-white/5">
+        <div className="max-w-7xl mx-auto px-4 text-center text-sm">
+          <p>&copy; 2025 Nawaz SMM Panel. All rights reserved.</p>
         </div>
       </footer>
     </div>

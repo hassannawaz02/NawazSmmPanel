@@ -46,12 +46,12 @@ const AdminAddFunds = () => {
 
     try {
       const response = await walletAPI.adminAddFunds({
-        userId: user._id,
+        userId: user.id,
         amount: amountNum,
         description: description || `Manual addition by admin`,
       });
 
-      toast.success(`₹${amountNum} added to ${user.name}'s wallet`);
+      toast.success(`PKR ${amountNum} added to ${user.name}'s wallet`);
       setUser({
         ...user,
         walletBalance: response.data.data.newBalance,
@@ -74,7 +74,7 @@ const AdminAddFunds = () => {
 
       {/* Search User */}
       <Card title="Search User" className="mb-6">
-        <form onSubmit={handleSearch} className="flex gap-3">
+        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
             <Input
               placeholder="Enter user email"
@@ -93,7 +93,7 @@ const AdminAddFunds = () => {
       {user && (
         <Card title="User Details">
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-xl">
                   {user.name.charAt(0).toUpperCase()}
@@ -106,7 +106,7 @@ const AdminAddFunds = () => {
               <div className="ml-auto text-right">
                 <p className="text-sm text-gray-500">Current Balance</p>
                 <p className="text-2xl font-bold text-primary-600">
-                  ₹{user.walletBalance.toFixed(2)}
+                  PKR {user.walletBalance.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -114,7 +114,7 @@ const AdminAddFunds = () => {
 
           <form onSubmit={handleAddFunds} className="space-y-4">
             <Input
-              label="Amount to Add (₹)"
+              label="Amount to Add (PKR)"
               type="number"
               step="0.01"
               placeholder="Enter amount"
@@ -134,7 +134,7 @@ const AdminAddFunds = () => {
               <div className="p-4 bg-green-50 rounded-lg">
                 <p className="text-sm text-gray-600">New Balance After Addition</p>
                 <p className="text-2xl font-bold text-green-600">
-                  ₹{(user.walletBalance + parseFloat(amount)).toFixed(2)}
+                  PKR {(user.walletBalance + parseFloat(amount)).toFixed(2)}
                 </p>
               </div>
             )}

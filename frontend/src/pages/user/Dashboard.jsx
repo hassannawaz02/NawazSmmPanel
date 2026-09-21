@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { ordersAPI, walletAPI } from '../../services/api';
+import { ordersAPI } from '../../services/api';
 import { Card, StatCard, Table, Badge, PageLoader } from '../../components/ui';
 import {
   HiOutlineCreditCard,
@@ -26,18 +26,12 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     try {
-      const ordersRes = await ordersAPI.getAll({ limit: 5 });
+      const [ordersRes, statsRes] = await Promise.all([
+        ordersAPI.getAll({ limit: 5 }),
+        ordersAPI.getMyStats(),
+      ]);
       setOrders(ordersRes.data.data);
-      
-      // Calculate stats from orders
-      const allOrdersRes = await ordersAPI.getAll({ limit: 1000 });
-      const allOrders = allOrdersRes.data.data;
-      
-      setStats({
-        totalOrders: allOrders.length,
-        pendingOrders: allOrders.filter(o => ['pending', 'processing', 'in_progress'].includes(o.status)).length,
-        completedOrders: allOrders.filter(o => o.status === 'completed').length,
-      });
+      setStats(statsRes.data.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -61,14 +55,18 @@ const Dashboard = () => {
   };
 
   const columns = [
-    { key: '_id', title: 'Order ID', render: (id) => `#${id.slice(-8)}` },
+    { key: 'orderNumber', title: 'Order ID', render: (orderNumber) => `#${orderNumber}` },
     {
       key: 'service',
       title: 'Service',
-      render: (_, row) => row.service?.title || 'N/A',
+      render: (_, row) => (
+        <span className="block max-w-[200px] truncate" title={row.service?.title || 'N/A'}>
+          {row.service?.title || 'N/A'}
+        </span>
+      ),
     },
-    { key: 'quantity', title: 'Quantity' },
-    { key: 'amount', title: 'Amount', render: (amount) => `₹${amount.toFixed(2)}` },
+    { key: 'quantity', title: 'Qty', className: 'text-center' },
+    { key: 'amount', title: 'Amount', render: (amount) => `PKR ${amount.toFixed(2)}` },
     { key: 'status', title: 'Status', render: (status) => getStatusBadge(status) },
   ];
 
@@ -90,7 +88,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Wallet Balance"
-          value={`₹${user?.walletBalance?.toFixed(2) || '0.00'}`}
+          value={`PKR ${user?.walletBalance?.toFixed(2) || '0.00'}`}
           icon={HiOutlineCreditCard}
           color="primary"
         />

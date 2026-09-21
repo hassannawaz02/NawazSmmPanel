@@ -4,27 +4,25 @@ const router = express.Router();
 const {
   getBalance,
   getTransactionHistory,
-  createPaymentOrder,
-  verifyPayment,
-  paymentWebhook,
+  createFundRequest,
+  getMyFundRequests,
+  getFundRequests,
+  approveFundRequest,
+  rejectFundRequest,
   adminAddFunds,
   getAllTransactions,
 } = require('../controllers/walletController');
 const { protect, authorize, validate } = require('../middleware');
 
 // Validation rules
-const addFundsValidation = [
+const fundRequestValidation = [
+  body('paymentMethodId').notEmpty().withMessage('Payment method is required'),
   body('amount')
     .isNumeric()
     .withMessage('Amount must be a number')
-    .custom((value) => value >= 10)
-    .withMessage('Minimum amount is ₹10'),
-];
-
-const verifyPaymentValidation = [
-  body('razorpay_order_id').notEmpty().withMessage('Order ID is required'),
-  body('razorpay_payment_id').notEmpty().withMessage('Payment ID is required'),
-  body('razorpay_signature').notEmpty().withMessage('Signature is required'),
+    .custom((value) => value > 0)
+    .withMessage('Amount must be greater than 0'),
+  body('transactionId').trim().notEmpty().withMessage('Transaction ID is required'),
 ];
 
 const adminAddFundsValidation = [
@@ -39,19 +37,13 @@ const adminAddFundsValidation = [
 // User routes
 router.get('/balance', protect, getBalance);
 router.get('/history', protect, getTransactionHistory);
-router.post('/add-funds', protect, addFundsValidation, validate, createPaymentOrder);
-router.post(
-  '/verify-payment',
-  protect,
-  verifyPaymentValidation,
-  validate,
-  verifyPayment
-);
-
-// Webhook route (no auth required)
-router.post('/webhook', paymentWebhook);
+router.post('/fund-request', protect, fundRequestValidation, validate, createFundRequest);
+router.get('/my-fund-requests', protect, getMyFundRequests);
 
 // Admin routes
+router.get('/fund-requests', protect, authorize('admin'), getFundRequests);
+router.put('/fund-requests/:id/approve', protect, authorize('admin'), approveFundRequest);
+router.put('/fund-requests/:id/reject', protect, authorize('admin'), rejectFundRequest);
 router.post(
   '/admin/add-funds',
   protect,

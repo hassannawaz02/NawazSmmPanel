@@ -1,212 +1,287 @@
 import { useState, useEffect } from 'react';
-import { walletAPI } from '../../services/api';
+import { walletAPI, paymentMethodAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { Card, Button, Input, Table, Badge, Pagination, PageLoader } from '../../components/ui';
+import { Card, Button, Badge, Pagination, PageLoader } from '../../components/ui';
 import toast from 'react-hot-toast';
 
 const AddFunds = () => {
   const { user, updateUser } = useAuth();
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [selectedMethod, setSelectedMethod] = useState(null);
+  const [transactionId, setTransactionId] = useState('');
   const [amount, setAmount] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [myRequests, setMyRequests] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [transactions, setTransactions] = useState([]);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    pages: 1,
-    total: 0,
-  });
-
-  const quickAmounts = [100, 500, 1000, 2000, 5000];
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
 
   useEffect(() => {
-    fetchTransactionHistory();
+    fetchPaymentMethods();
+    fetchMyRequests();
   }, [pagination.page]);
 
-  const fetchTransactionHistory = async () => {
+  const fetchPaymentMethods = async () => {
+    try {
+      const response = await paymentMethodAPI.getAll();
+      setPaymentMethods(response.data.data);
+    } catch (error) {
+      toast.error('Failed to fetch payment methods');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMyRequests = async () => {
     setHistoryLoading(true);
     try {
-      const response = await walletAPI.getHistory({
+      const response = await walletAPI.getMyFundRequests({
         page: pagination.page,
         limit: 10,
       });
-      setTransactions(response.data.data);
+      setMyRequests(response.data.data);
       setPagination({
         page: response.data.page,
         pages: response.data.pages,
         total: response.data.total,
       });
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      console.error('Error fetching requests:', error);
     } finally {
       setHistoryLoading(false);
     }
   };
 
-  const handlePayment = async () => {
-    const amountNum = parseFloat(amount);
-    if (!amountNum || amountNum < 10) {
-      toast.error('Minimum amount is ₹10');
+  const handleMethodSelect = (method) => {
+    setSelectedMethod(method);
+    setTransactionId('');
+    setAmount('');
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedMethod) {
+      toast.error('Please select a payment method');
       return;
     }
 
-    setLoading(true);
+    if (!transactionId.trim()) {
+      toast.error('Please enter transaction ID');
+      return;
+    }
+
+    const amountNum = parseFloat(amount);
+    if (!amountNum || amountNum <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    if (amountNum < selectedMethod.minAmount) {
+      toast.error(`Minimum amount is PKR ${selectedMethod.minAmount}`);
+      return;
+    }
+
+    if (amountNum > selectedMethod.maxAmount) {
+      toast.error(`Maximum amount is PKR ${selectedMethod.maxAmount}`);
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
-      const response = await walletAPI.createPaymentOrder(amountNum);
-      const { orderId, keyId } = response.data.data;
+      await walletAPI.createFundRequest({
+        paymentMethodId: selectedMethod.id,
+        amount: amountNum,
+        transactionId: transactionId.trim(),
+      });
 
-      const options = {
-        key: keyId,
-        amount: amountNum * 100,
-        currency: 'INR',
-        name: 'SMM Panel',
-        description: 'Wallet Recharge',
-        order_id: orderId,
-        handler: async function (response) {
-          try {
-            const verifyResponse = await walletAPI.verifyPayment({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-
-            updateUser({ walletBalance: verifyResponse.data.data.newBalance });
-            toast.success('Payment successful!');
-            setAmount('');
-            fetchTransactionHistory();
-          } catch (error) {
-            toast.error('Payment verification failed');
-          }
-        },
-        prefill: {
-          name: user?.name,
-          email: user?.email,
-        },
-        theme: {
-          color: '#2563eb',
-        },
-      };
-
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
+      toast.success('Fund request submitted! Waiting for admin approval.');
+      setTransactionId('');
+      setAmount('');
+      setSelectedMethod(null);
+      fetchMyRequests();
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to initiate payment');
+      toast.error(error.response?.data?.error || 'Failed to submit request');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const columns = [
-    {
-      key: 'type',
-      title: 'Type',
-      render: (type) => (
-        <Badge variant={type === 'credit' ? 'success' : 'danger'}>
-          {type === 'credit' ? 'Credit' : 'Debit'}
-        </Badge>
-      ),
-    },
-    {
-      key: 'amount',
-      title: 'Amount',
-      render: (amount, row) => (
-        <span className={row.type === 'credit' ? 'text-green-600' : 'text-red-600'}>
-          {row.type === 'credit' ? '+' : '-'}₹{amount.toFixed(2)}
-        </span>
-      ),
-    },
-    { key: 'description', title: 'Description' },
-    {
-      key: 'balanceAfter',
-      title: 'Balance After',
-      render: (balance) => `₹${balance.toFixed(2)}`,
-    },
-    {
-      key: 'createdAt',
-      title: 'Date',
-      render: (date) => new Date(date).toLocaleString(),
-    },
-  ];
+  const getStatusBadge = (status) => {
+    const config = {
+      pending: { variant: 'warning', label: 'Pending' },
+      approved: { variant: 'success', label: 'Approved' },
+      rejected: { variant: 'danger', label: 'Rejected' },
+    };
+    const s = config[status] || { variant: 'default', label: status };
+    return <Badge variant={s.variant}>{s.label}</Badge>;
+  };
+
+  if (loading) return <PageLoader />;
 
   return (
     <div className="fade-in">
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-900">Add Funds</h1>
         <p className="text-gray-500 mt-1">Add money to your wallet</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Add Funds Card */}
-        <div className="lg:col-span-1">
-          <Card title="Add Funds">
-            {/* Current Balance */}
-            <div className="bg-primary-50 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-600">Current Balance</p>
-              <p className="text-3xl font-bold text-primary-600">
-                ₹{user?.walletBalance?.toFixed(2) || '0.00'}
-              </p>
-            </div>
+      {/* Current Balance */}
+      <div className="bg-primary-50 rounded-lg p-4 mb-4">
+        <p className="text-sm text-gray-600">Current Balance</p>
+        <p className="text-2xl font-bold text-primary-600">
+          PKR {user?.walletBalance?.toFixed(2) || '0.00'}
+        </p>
+      </div>
 
-            {/* Amount Input */}
-            <Input
-              label="Amount (₹)"
+      {/* Payment Methods - Grid Layout */}
+      <p className="text-sm font-medium text-gray-700 mb-2">Select Payment Method</p>
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        {paymentMethods.map((method) => (
+          <button
+            key={method.id}
+            onClick={() => handleMethodSelect(method)}
+            className={`border-2 rounded-lg p-3 text-center transition-all ${
+              selectedMethod?.id === method.id
+                ? 'border-green-500 bg-green-50'
+                : 'border-gray-200 hover:border-green-300 bg-white'
+            }`}
+          >
+            {method.logo ? (
+              <img src={method.logo} alt={method.name} className="h-8 mx-auto mb-1 object-contain" />
+            ) : (
+              <div className="h-8 flex items-center justify-center mb-1">
+                <span className="text-lg">💰</span>
+              </div>
+            )}
+            <p className="text-xs font-medium text-gray-700 truncate">{method.name}</p>
+          </button>
+        ))}
+      </div>
+
+      {paymentMethods.length === 0 && (
+        <div className="bg-gray-50 rounded-lg p-6 text-center mb-4">
+          <p className="text-gray-500">No payment methods available. Contact admin.</p>
+        </div>
+      )}
+
+      {/* Selected Method Details */}
+      {selectedMethod && (
+        <div className="space-y-3">
+          {/* Account Info Card */}
+          <div className="bg-gray-500 text-white rounded-lg p-4">
+            <h3 className="text-yellow-400 text-center font-semibold text-sm">Account Number</h3>
+            <p className="text-center text-xl font-bold mt-1">{selectedMethod.accountNumber}</p>
+
+            <h3 className="text-yellow-400 text-center font-semibold text-sm mt-3">Account Title</h3>
+            <p className="text-center font-semibold mt-1">{selectedMethod.accountTitle}</p>
+
+            <h3 className="text-yellow-400 text-center font-semibold text-sm mt-3">Instructions</h3>
+            <div className="text-center text-xs mt-2 space-y-0.5">
+              <p>Step 1: Pay us on the given Number</p>
+              <p>Step 2: Copy the Transaction Id and paste it below</p>
+              <p>Step 3: Enter the amount and hit submit</p>
+            </div>
+          </div>
+
+          {/* Info */}
+          <div className="bg-gray-50 rounded-lg p-3">
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div>
+                <p className="text-gray-500">Min</p>
+                <p className="font-semibold">{selectedMethod.minAmount}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Max</p>
+                <p className="font-semibold">{selectedMethod.maxAmount}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Fee</p>
+                <p className="font-semibold">{selectedMethod.fee}%</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Transaction ID Input */}
+          <div>
+            <label className="block text-sm font-medium text-green-600 mb-1">
+              Transaction ID
+            </label>
+            <input
+              type="text"
+              placeholder="Enter Transaction ID"
+              value={transactionId}
+              onChange={(e) => setTransactionId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          {/* Amount Input */}
+          <div>
+            <label className="block text-sm font-medium text-green-600 mb-1">Amount [PKR]</label>
+            <input
               type="number"
               placeholder="Enter amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              min="10"
+              min={selectedMethod.minAmount}
+              max={selectedMethod.maxAmount}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
+          </div>
 
-            {/* Quick Amounts */}
-            <div className="flex flex-wrap gap-2 mt-4">
-              {quickAmounts.map((amt) => (
-                <button
-                  key={amt}
-                  onClick={() => setAmount(amt.toString())}
-                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  ₹{amt}
-                </button>
-              ))}
-            </div>
-
-            {/* Pay Button */}
-            <Button
-              onClick={handlePayment}
-              loading={loading}
-              className="w-full mt-6"
-              size="lg"
-            >
-              Pay with Razorpay
-            </Button>
-
-            <p className="text-xs text-gray-500 text-center mt-4">
-              Minimum amount: ₹10
-            </p>
-          </Card>
+          {/* Submit Button */}
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {submitting ? 'Submitting...' : 'Submit'}
+          </button>
         </div>
+      )}
 
-        {/* Transaction History */}
-        <div className="lg:col-span-2">
-          <Card title="Transaction History">
-            {historyLoading ? (
-              <PageLoader />
+      {/* Fund Requests History */}
+      <div className="mt-6">
+        <h2 className="text-lg font-bold text-gray-900 mb-3">My Fund Requests</h2>
+        {historyLoading ? (
+          <PageLoader />
+        ) : (
+          <>
+            {myRequests.length === 0 ? (
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <p className="text-gray-500 text-sm">No requests yet</p>
+              </div>
             ) : (
-              <>
-                <Table
-                  columns={columns}
-                  data={transactions}
-                  emptyMessage="No transactions yet"
-                />
-                <Pagination
-                  currentPage={pagination.page}
-                  totalPages={pagination.pages}
-                  onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
-                />
-              </>
+              <div className="space-y-2">
+                {myRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="border border-gray-200 rounded-lg p-3"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium text-sm">PKR {req.amount.toFixed(2)}</p>
+                        <p className="text-xs text-gray-500">{req.paymentMethod?.name}</p>
+                        <p className="text-xs text-gray-400 font-mono">{req.transactionId}</p>
+                      </div>
+                      <div className="text-right">
+                        {getStatusBadge(req.status)}
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(req.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-          </Card>
-        </div>
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.pages}
+              onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
+            />
+          </>
+        )}
       </div>
     </div>
   );

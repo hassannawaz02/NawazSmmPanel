@@ -14,8 +14,8 @@ const Table = ({ columns, data, loading, emptyMessage = 'No data available' }) =
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
+    <div className="w-full overflow-x-auto">
+      <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-gray-200">
             {columns.map((column) => (

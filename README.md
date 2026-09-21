@@ -1,328 +1,204 @@
-**SMM Panel – Full Stack Social Media Marketing Platform**
+# Niazi SMM Panel
 
-![React](https://img.shields.io/badge/React-18-blue?logo=react)
-![Vite](https://img.shields.io/badge/Vite-Build_Tool-purple?logo=vite)
-![Node.js](https://img.shields.io/badge/Node.js-18-green?logo=node.js)
-![Express](https://img.shields.io/badge/Express.js-Backend-black?logo=express)
-![MongoDB](https://img.shields.io/badge/MongoDB-Database-green?logo=mongodb)
-![JWT](https://img.shields.io/badge/Auth-JWT-orange)
-![Razorpay](https://img.shields.io/badge/Payments-Razorpay-blue)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3-38B2AC?logo=tailwind-css)
-![License](https://img.shields.io/badge/License-MIT-green)
-
-## 📌 Overview
-
-**SMM Panel** is a production-ready full-stack Social Media Marketing platform built using:
-
-* **Frontend:** React + Vite + Tailwind CSS
-* **Backend:** Node.js + Express
-* **Database:** MongoDB
-* **Authentication:** JWT with HTTP-only cookies
-* **Payments:** Razorpay Integration
-
-This application enables users to purchase social media services (followers, likes, views, etc.) while providing a powerful admin dashboard to manage services, orders, users, and payments.
-
-The project demonstrates strong backend architecture, secure authentication practices, payment gateway integration, and scalable API design.
+Full-stack Social Media Marketing Panel built with React + Vite, Node.js + Express, PostgreSQL (Neon).
 
 ---
 
-## 🔑 Core Features
+## Tech Stack
 
-### 👤 User Functionality
-
-* Secure user registration & login (JWT authentication)
-* Wallet balance management
-* Add funds using Razorpay
-* Place new SMM service orders
-* Track order status in real-time
-* View complete order history
-* Browse services by category
-* Update profile & password
-
-### 🛠 Admin Functionality
-
-* Role-based access control (Admin/User)
-* Admin dashboard with analytics & statistics
-* Full CRUD operations for services
-* Manage users (activate, deactivate, edit)
-* View and update all orders
-* Manual wallet fund adjustments
-* Monitor transactions & revenue
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18, Vite, Tailwind CSS, React Router v6 |
+| Backend | Node.js, Express.js, Prisma ORM |
+| Database | PostgreSQL (Neon Cloud - free tier) |
+| Auth | JWT (HTTP-only cookies) |
+| Provider API | WorldPanel24 |
 
 ---
 
-## 🧠 Technical Highlights
+## Features
 
-* RESTful API architecture
-* Secure JWT authentication with HTTP-only cookies
-* Role-based authorization middleware
-* Razorpay payment gateway integration
-* SMM Provider API integration
-* Automated cron jobs for order updates
-* Modular backend structure (controllers, services, middleware)
-* Clean, reusable React component architecture
-* Responsive UI built with Tailwind CSS
+**User:**
+- Register/Login (JWT)
+- Browse & order SMM services
+- Wallet balance & fund requests
+- Order history & tracking
+- WhatsApp support button
 
----
-
-## 🏗 Architecture
-
-### Backend Stack
-
-* Node.js
-* Express.js
-* MongoDB (Mongoose ODM)
-* JWT Authentication
-* Razorpay API
-* External SMM Provider API
-
-### Frontend Stack
-
-* React (Functional Components + Hooks)
-* Vite (Fast build tool)
-* Tailwind CSS
-* Context API for state management
-* Protected Routes & Role Guards
+**Admin:**
+- Dashboard with analytics
+- Manage services, categories, providers
+- Manage users, orders, fund requests
+- Payment methods, reviews, messages
+- WhatsApp & site settings (from panel)
+- Bulk operations, CSV export
+- Financial analytics (8 charts)
 
 ---
 
-## 📂 Project Structure
+## Deployment Guide
+
+### Step 1: Push to GitHub
+
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+git push -u origin main
+```
+
+### Step 2: Deploy Backend (Render)
+
+1. Go to [render.com](https://render.com) and sign up (free)
+2. Click **New > Web Service**
+3. Connect your GitHub repo
+4. Settings:
+   - **Name:** `niazi-smm-backend`
+   - **Root Directory:** `backend`
+   - **Runtime:** Node
+   - **Build Command:** `npm install && npx prisma generate && npx prisma db push`
+   - **Start Command:** `node src/server.js`
+5. Add Environment Variables:
+   ```
+   NODE_ENV=production
+   DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-xxx-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&connection_limit=5&pool_timeout=20
+   JWT_SECRET=your_strong_random_secret_here
+   JWT_EXPIRE=7d
+   COOKIE_EXPIRE=7
+   SMM_PROVIDER_URL=https://worldpanel24.com/api/v2
+   SMM_PROVIDER_API_KEY=your_api_key_here
+   FRONTEND_URL=https://YOUR_USERNAME.vercel.app
+   ```
+6. Click **Create Web Service**
+7. Copy the URL (e.g., `https://niazi-smm-backend.onrender.com`)
+
+### Step 3: Deploy Frontend (Vercel)
+
+1. Go to [vercel.com](https://vercel.com) and sign up with GitHub
+2. Click **Import Project**
+3. Select your GitHub repo
+4. Settings:
+   - **Framework Preset:** Vite
+   - **Root Directory:** `frontend`
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `dist`
+5. Add Environment Variable:
+   ```
+   VITE_API_URL=https://niazi-smm-backend.onrender.com/api
+   ```
+6. Click **Deploy**
+
+### Step 4: Update Backend CORS
+
+After Vercel deploy, update backend `FRONTEND_URL` environment variable on Render to your Vercel URL.
+
+### Step 5: Create Admin User
+
+After first backend deploy, the database is empty. Use the register endpoint to create a user, then manually update role to `admin` in the database using Neon SQL Editor:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'your_email@example.com';
+```
+
+---
+
+## Local Development
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL (Neon account)
+
+### Backend
+```bash
+cd backend
+npm install
+# Create .env file (see backend/.env.example)
+npx prisma generate
+npx prisma db push
+npm run dev
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+# Create .env file (see frontend/.env.example)
+npm run dev
+```
+
+Frontend runs on `http://localhost:5173`
+Backend runs on `http://localhost:5000`
+
+---
+
+## Environment Variables
+
+### Backend (.env)
+```
+PORT=5000
+NODE_ENV=development
+DATABASE_URL=postgresql://...
+JWT_SECRET=your_secret
+JWT_EXPIRE=7d
+COOKIE_EXPIRE=7
+SMM_PROVIDER_URL=https://worldpanel24.com/api/v2
+SMM_PROVIDER_API_KEY=your_key
+FRONTEND_URL=http://localhost:5173
+```
+
+### Frontend (.env)
+```
+VITE_API_URL=/api
+```
+
+---
+
+## Project Structure
 
 ```
-SMM Panel/
+Smm-Panel/
 ├── backend/
 │   ├── src/
-│   │   ├── config/
-│   │   ├── controllers/
-│   │   ├── middleware/
-│   │   ├── models/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   └── utils/
+│   │   ├── config/          # Environment config
+│   │   ├── controllers/     # Route handlers
+│   │   ├── lib/             # Prisma client
+│   │   ├── middleware/      # Auth, error handling
+│   │   ├── routes/          # API routes
+│   │   ├── services/        # SMM Provider, cron jobs
+│   │   └── utils/           # Helpers
+│   ├── prisma/
+│   │   └── schema.prisma    # Database schema
+│   ├── Dockerfile
 │   └── package.json
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── components/
-│   │   ├── context/
-│   │   ├── pages/
-│   │   └── services/
+│   │   ├── components/      # UI components + layout
+│   │   ├── context/         # Auth + SiteSettings
+│   │   ├── pages/           # User, Admin, Public pages
+│   │   └── services/        # API client
+│   ├── index.html
 │   └── package.json
 │
 └── README.md
 ```
 
-The architecture follows separation of concerns and scalable backend design principles.
+---
 
-🏗 **System Architecture flowchart LR**
+## Database Schema
 
-    %% Client Layer
-    A[User Browser] --> B[React Frontend<br/>Vite + Tailwind]
-
-    %% API Layer
-    B -->|REST API (HTTPS)| C[Express Server<br/>Node.js Backend]
-
-    %% Authentication
-    C --> D[JWT Auth<br/>HTTP-only Cookies]
-
-    %% Database
-    C --> E[(MongoDB Database)]
-
-    %% External Services
-    C --> F[SMM Provider API]
-    C --> G[Razorpay Payment Gateway]
-
-    %% Cron Jobs
-    C --> H[Cron Jobs<br/>Order Status Updates]
-
-    %% Data Flow Labels
-    F -->|Order Status| C
-    G -->|Payment Verification| C
-
-🧱 Architecture Explanation
-1️⃣ Client Layer (Frontend)
-
-Built using React + Vite
-
-Styled with Tailwind CSS
-
-Handles UI rendering, routing, and API calls
-
-Stores JWT securely via HTTP-only cookies
-
-2️⃣ API Layer (Backend)
-
-Node.js + Express
-
-RESTful API structure
-
-Middleware-based authentication & role authorization
-
-Handles business logic and validation
-
-3️⃣ Database Layer
-
-MongoDB with Mongoose
-
-Stores:
-
-Users
-
-Services
-
-Orders
-
-Wallet Transactions
-
-4️⃣ External Integrations
-
-SMM Provider API → Places & tracks external service orders
-
-Razorpay API → Handles secure payments and wallet funding
-
-5️⃣ Background Jobs
-
-Cron jobs periodically:
-
-Check provider order status
-
-Update database
-
-Sync order states
-
-🔐 Security Flow
-
-User logs in → Backend generates JWT
-
-JWT stored in HTTP-only cookie
-
-Protected routes validate token via middleware
-
-Admin routes verify role before execution
+Key models: User, Service, Category, Order, Provider, WalletTransaction, Message, PaymentMethod, FundRequest, Review, SiteSetting
 
 ---
 
-## ⚙️ Installation & Setup
+## Author
 
-### Prerequisites
-
-* Node.js v18+
-* MongoDB
-* npm or yarn
+**Hassan Nawaz**
+GitHub: [@hassannawz02](https://github.com/hassannawz02)
 
 ---
 
-### 🔹 Backend Setup
+## License
 
-```bash
-cd backend
-npm install
-```
-
-Create `.env` file:
-
-```env
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/smm_panel
-JWT_SECRET=your_secret
-RAZORPAY_KEY_ID=your_key
-RAZORPAY_KEY_SECRET=your_secret
-FRONTEND_URL=http://localhost:5173
-```
-
-Run server:
-
-```bash
-npm run dev
-```
-
----
-
-### 🔹 Frontend Setup
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Production build:
-
-```bash
-npm run build
-```
-
----
-
-## 🔐 Security Practices
-
-* HTTP-only cookies for JWT storage
-* Environment variable protection
-* Secure Razorpay webhook handling
-* Role-based route protection
-* Input validation & error handling
-
----
-
-## 📊 Database Models
-
-* **User**
-* **Service**
-* **Order**
-* **WalletTransaction**
-
-Designed with relational references using MongoDB ObjectIds for efficient data linking.
-
----
-
-## 🚀 Deployment
-
-### Backend
-
-* Set `NODE_ENV=production`
-* Configure production MongoDB
-* Set secure JWT secret
-* Configure Razorpay production keys
-* Run `npm start`
-
-### Frontend
-
-* Build with `npm run build`
-* Deploy `dist/` to Vercel / Netlify
-* Configure API base URL
-
----
-
-## 🏷 SEO & Search Keywords
-
-`SMM Panel` `Social Media Marketing Platform` `Full Stack MERN Project`
-`React Node.js MongoDB Project` `JWT Authentication` `Razorpay Integration`
-`Admin Dashboard` `Ecommerce Backend` `REST API Project`
-`Role Based Access Control` `Full Stack Developer Portfolio Project`
-
----
-
-## 🎯 What This Project Demonstrates
-
-* Advanced full-stack development skills
-* Secure authentication & authorization
-* Payment gateway integration
-* Clean REST API design
-* Scalable backend architecture
-* Real-world production use case
-
----
-
-## 📄 License
-
-MIT License
-
----
-
-## 👨‍💻 Author
-
-**Rajan Singh**  
-(Frontend Developer)
-
-**Aditya Singh**
-(Backend Developer)
+MIT

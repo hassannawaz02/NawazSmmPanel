@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { servicesAPI } from '../../services/api';
-import { Card, Input, PageLoader } from '../../components/ui';
-import { HiOutlineSearch } from 'react-icons/hi';
+import { Card, PageLoader } from '../../components/ui';
+import { HiOutlineSearch, HiOutlineChevronDown } from 'react-icons/hi';
 
 const Services = () => {
   const [loading, setLoading] = useState(true);
@@ -9,9 +9,21 @@ const Services = () => {
   const [groupedServices, setGroupedServices] = useState({});
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     fetchServices();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const fetchServices = async () => {
@@ -52,58 +64,72 @@ const Services = () => {
             placeholder="Search services..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="relative min-w-[200px]" ref={dropdownRef}>
           <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
-              selectedCategory === 'all'
-                ? 'bg-primary-600 text-white'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`}
+            type="button"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
           >
-            All
+            <span className={`truncate ${selectedCategory === 'all' ? 'text-gray-400' : 'text-gray-900'}`}>
+              {selectedCategory === 'all' ? 'All Categories' : selectedCategory}
+            </span>
+            <HiOutlineChevronDown className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
-                selectedCategory === category
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
+          {dropdownOpen && (
+            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => { setSelectedCategory('all'); setDropdownOpen(false); }}
+                className={`w-full px-4 py-2.5 text-left text-sm hover:bg-primary-50 transition-colors ${selectedCategory === 'all' ? 'text-primary-600 bg-primary-50 font-medium' : 'text-gray-900'}`}
+              >
+                All Categories
+              </button>
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => { setSelectedCategory(category); setDropdownOpen(false); }}
+                  className={`w-full px-4 py-2.5 text-left text-sm hover:bg-primary-50 transition-colors ${selectedCategory === category ? 'text-primary-600 bg-primary-50 font-medium' : 'text-gray-900'}`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Services Grid */}
       <div className="grid gap-4">
         {filteredServices.map((service) => (
-          <Card key={service._id} className="hover:shadow-md transition-shadow">
+          <Card key={service.id} className="hover:shadow-md transition-shadow">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-medium text-primary-600 bg-primary-50 px-2 py-0.5 rounded">
                     {service.category}
                   </span>
-                  <span className="text-xs text-gray-500">ID: {service._id.slice(-6)}</span>
+                  <span className="text-xs text-gray-500">ID: {service.id.slice(-6)}</span>
                 </div>
                 <h3 className="font-semibold text-gray-900">{service.title}</h3>
                 {service.description && (
-                  <p className="text-sm text-gray-500 mt-1">{service.description}</p>
+                  <p className="text-sm text-gray-500 mt-1" style={{ whiteSpace: 'pre-line' }}>{service.description}</p>
                 )}
               </div>
-              <div className="flex items-center gap-6">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-6">
                 <div className="text-center">
                   <p className="text-xs text-gray-500">Rate</p>
-                  <p className="font-bold text-primary-600">₹{service.rate}</p>
-                  <p className="text-xs text-gray-400">per 1000</p>
+                  <p className="font-bold text-primary-600">
+                    {service.min === service.max
+                      ? `PKR ${service.rate}`
+                      : `PKR ${service.rate}/1000`}
+                  </p>
+                  {service.min !== service.max && (
+                    <p className="text-xs text-gray-400">per 1000</p>
+                  )}
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-gray-500">Min</p>
@@ -114,7 +140,7 @@ const Services = () => {
                   <p className="font-semibold">{service.max}</p>
                 </div>
                 <a
-                  href={`/new-order?service=${service._id}`}
+                  href={`/new-order?service=${service.id}`}
                   className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   Order

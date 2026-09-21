@@ -8,6 +8,7 @@ const {
   getAllOrders,
   updateOrderStatus,
   getOrderStats,
+  getUserOrderStats,
 } = require('../controllers/orderController');
 const { protect, authorize, validate } = require('../middleware');
 
@@ -37,6 +38,7 @@ const updateStatusValidation = [
 // User routes
 router.post('/', protect, createOrderValidation, validate, createOrder);
 router.get('/', protect, getOrders);
+router.get('/my-stats', protect, getUserOrderStats);
 router.get('/:id', protect, getOrder);
 
 // Admin routes

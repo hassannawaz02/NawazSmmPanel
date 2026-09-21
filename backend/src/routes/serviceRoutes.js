@@ -7,9 +7,11 @@ const {
   createService,
   updateService,
   deleteService,
+  bulkDeleteServices,
   getCategories,
+  checkSortOrder,
 } = require('../controllers/serviceController');
-const { protect, authorize, validate } = require('../middleware');
+const { protect, optionalAuth, authorize, validate } = require('../middleware');
 
 // Validation rules
 const serviceValidation = [
@@ -24,9 +26,10 @@ const serviceValidation = [
     .withMessage('Provider service ID is required'),
 ];
 
-// Public routes (no auth required)
-router.get('/', getServices);
+// Public routes (optional auth - admin gets all services, users get active only)
+router.get('/', optionalAuth, getServices);
 router.get('/categories', getCategories);
+router.get('/check-sort-order', protect, authorize('admin'), checkSortOrder);
 router.get('/:id', getService);
 
 // Admin routes
@@ -38,6 +41,7 @@ router.post(
   validate,
   createService
 );
+router.post('/bulk-delete', protect, authorize('admin'), bulkDeleteServices);
 router.put(
   '/:id',
   protect,

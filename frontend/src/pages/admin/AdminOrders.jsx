@@ -83,9 +83,9 @@ const AdminOrders = () => {
 
   const columns = [
     {
-      key: '_id',
+      key: 'orderNumber',
       title: 'Order ID',
-      render: (id) => <span className="font-mono text-xs">#{id.slice(-8)}</span>,
+      render: (orderNumber) => <span className="font-mono text-xs">#{orderNumber}</span>,
     },
     {
       key: 'user',
@@ -102,8 +102,8 @@ const AdminOrders = () => {
       title: 'Service',
       render: (_, row) => (
         <div className="max-w-[200px]">
-          <p className="font-medium truncate">{row.service?.title || 'N/A'}</p>
-          <p className="text-xs text-gray-500">{row.service?.category}</p>
+          <p className="font-medium truncate">{row.service?.title || 'Deleted Service'}</p>
+          <p className="text-xs text-gray-500">{row.service?.category || 'N/A'}</p>
         </div>
       ),
     },
@@ -125,7 +125,16 @@ const AdminOrders = () => {
     {
       key: 'amount',
       title: 'Amount',
-      render: (amount) => `₹${amount.toFixed(2)}`,
+      render: (amount) => `PKR ${amount.toFixed(2)}`,
+    },
+    {
+      key: 'profit',
+      title: 'Profit',
+      render: (profit, row) => (
+        <span className={`font-semibold ${profit > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+          PKR {(profit || 0).toFixed(2)}
+        </span>
+      ),
     },
     {
       key: 'status',
@@ -133,7 +142,7 @@ const AdminOrders = () => {
       render: (status, row) => (
         <select
           value={status}
-          onChange={(e) => handleStatusChange(row._id, e.target.value)}
+          onChange={(e) => handleStatusChange(row.id, e.target.value)}
           className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
         >
           {statusOptions.slice(1).map((opt) => (
@@ -164,7 +173,7 @@ const AdminOrders = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">All Orders</h1>
           <p className="text-gray-500 mt-1">
-            Manage and track all customer orders
+            {orders.length > 0 ? `${orders.length} order${orders.length !== 1 ? 's' : ''} found` : 'Manage and track all customer orders'}
           </p>
         </div>
         <div className="mt-4 md:mt-0 w-full md:w-48">
@@ -184,7 +193,43 @@ const AdminOrders = () => {
           <PageLoader />
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Mobile Card List */}
+            <div className="md:hidden space-y-3">
+              {orders.map((order) => (
+                <div key={order.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-xs font-bold text-gray-900">#{order.orderNumber}</span>
+                    <select
+                      value={order.status}
+                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                      className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    >
+                      {statusOptions.slice(1).map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-sm font-medium text-gray-900">{order.user?.name || 'N/A'}</p>
+                  <p className="text-xs text-gray-500 truncate">{order.service?.title || 'Deleted Service'}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+                    <span>Qty: <span className="font-medium text-gray-900">{order.quantity}</span></span>
+                    <span>Amount: <span className="font-medium text-gray-900">PKR {order.amount.toFixed(2)}</span></span>
+                    <span className={`${(order.profit || 0) > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                      Profit: PKR {(order.profit || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  {order.providerOrderId && (
+                    <p className="text-xs text-gray-400 mt-1">Provider ID: {order.providerOrderId}</p>
+                  )}
+                  <div className="text-xs text-gray-400 mt-1">
+                    {new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))}
+              {orders.length === 0 && <div className="text-center py-8 text-gray-500">No orders found</div>}
+            </div>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
               <Table
                 columns={columns}
                 data={orders}

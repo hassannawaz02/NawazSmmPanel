@@ -11,6 +11,7 @@ const Profile = () => {
   
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
+    username: user?.username || '',
   });
   
   const [passwordData, setPasswordData] = useState({
@@ -47,12 +48,18 @@ const Profile = () => {
       return;
     }
 
+    if (!/^[A-Z]/.test(passwordData.newPassword)) {
+      toast.error('Password must start with a capital letter');
+      return;
+    }
+
     setPasswordLoading(true);
 
     try {
       await authAPI.updatePassword({
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
+        confirmPassword: passwordData.confirmPassword,
       });
       toast.success('Password updated successfully');
       setPasswordData({
@@ -86,6 +93,7 @@ const Profile = () => {
               </div>
               <div>
                 <p className="font-semibold text-gray-900">{user?.name}</p>
+                <p className="text-gray-500">@{user?.username}</p>
                 <p className="text-gray-500">{user?.email}</p>
                 <p className="text-sm text-primary-600 capitalize">{user?.role}</p>
               </div>
@@ -97,6 +105,12 @@ const Profile = () => {
               label="Full Name"
               value={profileData.name}
               onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+              required
+            />
+            <Input
+              label="Username"
+              value={profileData.username}
+              onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
               required
             />
             <Input
@@ -126,6 +140,8 @@ const Profile = () => {
             <Input
               label="New Password"
               type="password"
+              placeholder="Create a password"
+              helperText="Must start with a capital letter"
               value={passwordData.newPassword}
               onChange={(e) =>
                 setPasswordData({ ...passwordData, newPassword: e.target.value })
@@ -153,7 +169,7 @@ const Profile = () => {
             <div className="text-center p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-500">Wallet Balance</p>
               <p className="text-xl font-bold text-primary-600">
-                ₹{user?.walletBalance?.toFixed(2) || '0.00'}
+                PKR {user?.walletBalance?.toFixed(2) || '0.00'}
               </p>
             </div>
             <div className="text-center p-4 bg-gray-50 rounded-lg">
@@ -163,7 +179,7 @@ const Profile = () => {
             <div className="text-center p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-500">Member Since</p>
               <p className="text-xl font-bold">
-                {new Date(user?.createdAt).toLocaleDateString()}
+                {new Date(user?.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
               </p>
             </div>
           </div>

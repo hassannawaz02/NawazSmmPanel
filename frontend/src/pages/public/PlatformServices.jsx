@@ -197,16 +197,16 @@ const PlatformServices = () => {
     if (isAuthenticated) {
       navigate(`/new-order?service=${serviceId}`);
     } else {
-      navigate('/register');
+      navigate('/login');
     }
   };
 
   if (!config) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0e27] flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Platform Not Found</h1>
-          <Link to="/services" className="text-primary-600 hover:underline">
+          <h1 className="text-2xl font-bold text-white mb-4">Platform Not Found</h1>
+          <Link to="/services" className="text-primary-400 hover:underline">
             View All Services
           </Link>
         </div>
@@ -217,19 +217,24 @@ const PlatformServices = () => {
   const Icon = config.icon;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#0a0e27]">
       {/* Navbar */}
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
+      <nav className="bg-[#0a0e27]/95 backdrop-blur-md sticky top-0 z-50 border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Link to="/" className="text-2xl font-bold text-primary-600">SMM Panel</Link>
+              <Link to="/" className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">N</span>
+                </div>
+                <span className="text-xl font-bold text-white">Nawaz <span className="text-primary-400">SMM</span></span>
+              </Link>
             </div>
             <div className="flex items-center space-x-4">
               {isAuthenticated ? (
                 <Link
                   to="/dashboard"
-                  className="bg-primary-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-700 transition-colors"
+                  className="bg-primary-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-700"
                 >
                   Dashboard
                 </Link>
@@ -237,13 +242,13 @@ const PlatformServices = () => {
                 <>
                   <Link
                     to="/login"
-                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    className="text-white/80 hover:text-white text-sm font-medium transition-colors"
                   >
                     Login
                   </Link>
                   <Link
-                    to="/register"
-                    className="bg-primary-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-700 transition-colors"
+                    to="/login"
+                    className="bg-primary-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-700"
                   >
                     Get Started
                   </Link>
@@ -274,33 +279,33 @@ const PlatformServices = () => {
       {/* Features */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-white rounded-xl p-6 shadow-sm">
+          <div className="bg-white/5 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
             <HiOutlineLightningBolt className="w-8 h-8 text-yellow-500 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-1">Instant Start</h3>
-            <p className="text-gray-500 text-sm">Orders start within minutes of payment</p>
+            <h3 className="font-semibold text-white mb-1">Instant Start</h3>
+            <p className="text-gray-400 text-sm">Orders start within minutes of payment</p>
           </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm">
+          <div className="bg-white/5 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
             <HiOutlineShieldCheck className="w-8 h-8 text-green-500 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-1">High Quality</h3>
-            <p className="text-gray-500 text-sm">Premium quality with real engagement</p>
+            <h3 className="font-semibold text-white mb-1">High Quality</h3>
+            <p className="text-gray-400 text-sm">Premium quality with real engagement</p>
           </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm">
+          <div className="bg-white/5 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
             <HiOutlineClock className="w-8 h-8 text-blue-500 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-1">24/7 Support</h3>
-            <p className="text-gray-500 text-sm">Round the clock customer support</p>
+            <h3 className="font-semibold text-white mb-1">24/7 Support</h3>
+            <p className="text-gray-400 text-sm">Round the clock customer support</p>
           </div>
         </div>
 
         {/* Available Services */}
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Available Services</h2>
-        <p className="text-gray-500 mb-6">Choose from our range of {config.name} services</p>
+        <h2 className="text-2xl font-bold text-white mb-2">Available Services</h2>
+        <p className="text-gray-400 mb-6">Choose from our range of {config.name} services</p>
 
         <div className="mb-8">
           <div className="flex flex-wrap gap-2 mb-6">
             {config.features.map((feature, index) => (
               <span
                 key={index}
-                className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
+                className="px-3 py-1 bg-white/5 border border-white/10 text-gray-300 rounded-full text-sm"
               >
                 {feature}
               </span>
@@ -311,12 +316,12 @@ const PlatformServices = () => {
         {/* Services List */}
         {loading ? (
           <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-400"></div>
           </div>
         ) : services.length === 0 ? (
-          <div className="bg-white rounded-xl p-12 text-center shadow-sm">
-            <p className="text-gray-500 text-lg mb-4">No {config.name} services available yet.</p>
-            <Link to="/services" className="text-primary-600 hover:underline">
+          <div className="bg-white/5 backdrop-blur-sm border border-white/5 rounded-2xl p-12 text-center">
+            <p className="text-gray-400 text-lg mb-4">No {config.name} services available yet.</p>
+            <Link to="/services" className="text-primary-400 hover:underline">
               Browse All Services
             </Link>
           </div>
@@ -325,29 +330,29 @@ const PlatformServices = () => {
             {services.map((service) => (
               <div
                 key={service._id}
-                className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+                className="bg-white/5 backdrop-blur-sm border border-white/5 rounded-2xl p-6 hover:bg-white/10 hover:border-white/10 transition-all"
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    <h3 className="text-lg font-semibold text-white mb-1">
                       {service.title}
                     </h3>
-                    <p className="text-gray-500 text-sm">{service.description}</p>
+                    <p className="text-gray-400 text-sm" style={{ whiteSpace: 'pre-line' }}>{service.description}</p>
                     <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                      <span>Min: {service.minQuantity}</span>
-                      <span>Max: {service.maxQuantity}</span>
+                      <span>Min: {service.minQuantity ?? service.min}</span>
+                      <span>Max: {service.maxQuantity ?? service.max}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-primary-600">
-                        ₹{service.pricePerUnit}
+                      <div className="text-2xl font-bold text-primary-400">
+                        PKR {service.pricePerUnit ?? service.rate}
                       </div>
                       <div className="text-gray-500 text-sm">per 1000</div>
                     </div>
                     <button
                       onClick={() => handleOrder(service._id)}
-                      className="flex items-center gap-2 bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors"
+                      className="flex items-center gap-2 bg-primary-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-primary-700 transition-colors"
                     >
                       <HiOutlineShoppingCart className="w-5 h-5" />
                       Order
@@ -365,7 +370,7 @@ const PlatformServices = () => {
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-2xl font-bold mb-4">Ready to grow your {config.name}?</h2>
           <Link
-            to={isAuthenticated ? '/new-order' : '/register'}
+            to={isAuthenticated ? '/new-order' : '/login'}
             className="inline-block bg-white text-gray-900 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
           >
             Get Started Now
@@ -374,9 +379,9 @@ const PlatformServices = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8">
+      <footer className="bg-[#060920] text-gray-500 py-8 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p>&copy; 2025 SMM Panel. All rights reserved.</p>
+          <p>&copy; 2025 Nawaz SMM Panel. All rights reserved.</p>
         </div>
       </footer>
     </div>
