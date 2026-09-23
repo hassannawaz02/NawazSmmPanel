@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import { authAPI, clearToken } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -24,7 +24,9 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.getMe();
       setUser(response.data.data);
     } catch (error) {
-      // Silently handle auth check failure - user is not logged in
+      if (error.response?.status === 401) {
+        clearToken();
+      }
       setUser(null);
     } finally {
       setLoading(false);
@@ -44,8 +46,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await authAPI.logout();
-    setUser(null);
+    try {
+      await authAPI.logout();
+    } finally {
+      clearToken();
+      setUser(null);
+    }
   };
 
   const updateUser = (data) => {
